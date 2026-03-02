@@ -1,4 +1,4 @@
-# Life OS Starter — Setup Script (Windows PowerShell)
+# Life OS Starter - Setup Script (Windows PowerShell)
 # Usage: .\setup.ps1 [-LifeOSRoot "D:\Life Operating System"] [-WorkspacePath "C:\Users\you\.craft-agent\workspaces\my-workspace"]
 
 param(
@@ -176,7 +176,7 @@ if ($allGood) {
     Write-Host "  2. Make sure your workspace points to: $WorkspacePath"
     Write-Host "  3. Add a 'desktop-commander' source (the Architect needs file system access)"
     Write-Host "  4. Start a new session and type /start"
-    Write-Host "  5. Select Architect — then create your first agent!"
+    Write-Host "  5. Select Architect - then create your first agent!"
     Write-Host ""
 } else {
     Write-Host "Setup completed with errors. Check the MISSING files above." -ForegroundColor Red
