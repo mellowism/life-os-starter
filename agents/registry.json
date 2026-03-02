@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "description": "Agent registry — lists all agents in the Life OS system with metadata.",
+  "agents": [
+    {
+      "id": "architect",
+      "name": "Architect",
+      "folder": "Architect",
+      "purpose": "Designs and scaffolds new AI agents from templates",
+      "status": "active",
+      "persona": "methodical",
+      "contexts": ["personal"],
+      "requiredSources": ["desktop-commander"],
+      "label": "architect",
+      "createdAt": "{{SETUP_DATE}}"
+    }
+  ]
+}
