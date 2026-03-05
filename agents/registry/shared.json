@@ -1,0 +1,13 @@
+[
+  {
+    "id": "architect",
+    "name": "Architect",
+    "folder": "Architect",
+    "purpose": "Designs and scaffolds new AI agents from templates",
+    "status": "active",
+    "persona": "methodical",
+    "requiredSources": [],
+    "label": "architect",
+    "createdAt": "{{SETUP_DATE}}"
+  }
+]

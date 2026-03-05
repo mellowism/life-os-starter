@@ -5,41 +5,59 @@ description: "Start a session — pick an agent, load context, check handover"
 
 # Agent Session Start
 
+**CRITICAL:** Do NOT greet the user or produce any text output until you have completed Step 1 below. Your FIRST actions must be tool calls to read the config and registry. No exceptions.
+
 ## 1. List Available Agents
 
-Scan the current workspace's `skills/` folder for agent skills (each subfolder with a `SKILL.md`). Exclude system skills (`start`, `handoff`, `new-agent`) — only list agent-specific skills.
+Read these in parallel:
+- `agent-blueprint.json` at the workspace root — extract `systemRoot`, `user.name`, `machine.name`, and `machine.slug`
+- `{systemRoot}/AI/Agents/registry/shared.json` — agents available on all machines
+- `{systemRoot}/AI/Agents/registry/{machine.slug}.json` — agents specific to this machine (skip if file doesn't exist or no `machine.slug`)
 
-Present the agent names from each skill's frontmatter:
+All paths in this skill resolve from `{systemRoot}` (the value read from `agent-blueprint.json`).
 
-> "Hey, which agent today?"
-> - [list agent names from skills]
+Merge both arrays into a single list of available agents. No filtering needed — the file-based scoping handles it.
 
-Wait for the user to pick one.
+Present as a **numbered list** with the agent name and a short purpose from the registry:
+
+> Hey {user.name}, which agent today? *(Running on {machine.name})*
+>
+> 1. **Architect** — designs and scaffolds new agents
+> 2. ...
+
+Wait for the user to pick one (by number or name).
 
 ## 2. Boot the Agent
 
-Read the selected agent's skill file (`skills/{agent-slug}/SKILL.md`), then follow its instructions — which will point to the agent's boot file:
+Using the selected agent's `folder` field from the registry, read:
 
 ```
-{{LIFEOS_ROOT}}/AI/Agents/{agent}/System/README.md
+{systemRoot}/AI/Agents/{folder}/System/README.md
 ```
 
-This file points to persona, responsibilities, required sources, and other files to read.
+Then follow its boot sequence. This file points to persona, responsibilities, required sources, and other files to read.
 
 ## 3. Validate Sources
 
-The agent's README lists required sources. For each one:
+The agent's registry entry lists `requiredSources`. For each one:
 
 - **If active in this session:** Good, move on.
-- **If it exists in the workspace but isn't active:** Enable it yourself if possible. If you can't, tell the user exactly what to toggle: *"Please enable Desktop Commander in the sources panel."*
+- **If it exists in the workspace but isn't active:** Tell the user exactly what to toggle: *"Please enable [source] in the sources panel."*
 - **If it doesn't exist at all:** Offer to set it up: *"This agent needs [source], but it's not configured yet. Want me to add it now?"*
 
 Do NOT silently skip missing sources — always surface the issue.
 
 ## 4. Check Handover
 
-Check if `{{LIFEOS_ROOT}}/AI/Agents/{agent}/Handover/latest.md` exists:
+Determine if this is a cross-machine agent: it is if the agent was loaded from `shared.json` AND `machine.slug` exists (meaning multi-machine setup is active).
 
+**Cross-machine agent** (from `shared.json` in a multi-machine setup):
+- Look for ALL `latest-*.md` files in `{systemRoot}/AI/Agents/{folder}/Handover/`
+- Read each one. Note which machine it's from (`**Machine:**` header) and how recent it is.
+- Summarize context from all machines. Flag if multiple have recent activity (potential overlap).
+
+**Single-machine agent** (from `{machine.slug}.json`, or any agent when not using multi-machine):
+- Check if `{systemRoot}/AI/Agents/{folder}/Handover/latest.md` exists
 - **If it exists:** Read it. Briefly summarize what happened last session and what the recommended next focus is.
 - **If it doesn't exist:** Note this is a fresh start — no prior context.
 
@@ -50,10 +68,10 @@ Check if `Workflows/` is empty AND no handover exists. If both are true, this is
 For fresh agents:
 
 1. Explain: *"This is your first session with [agent]. Let me learn how you want me to work."*
-3. Ask: *"What's the first thing you want to tackle?"*
-4. Based on the answer, propose initial workflows and tools
-5. Build them during the session
-6. Include this setup work in the handover
+2. Ask: *"What's the first thing you want to tackle?"*
+3. Based on the answer, propose initial workflows and tools
+4. Build them during the session
+5. Include this setup work in the handover
 
 This replaces the generic "What would you like to work on?" prompt for fresh agents.
 
@@ -67,7 +85,18 @@ For agents that already have workflows and prior sessions:
 
 Agents should always look for ways to improve their own setup.
 
-## 7. Ready
+## 7. Check Assigned Tasks
+
+Scan for task files where the `assigned-to` frontmatter field matches the current agent's display name and `status` is not `done` or `dropped`.
+
+Use Grep to search for the agent name in frontmatter across task files. Read any matches to confirm they're assigned tasks.
+
+- **If tasks found:** List them briefly: *"You have [N] task(s) from other agents:"* followed by the task titles and who created them.
+- **If no tasks:** Skip silently — don't mention it.
+
+Tasks don't need to be acted on immediately. Surface them so the user is aware, then let them decide priority.
+
+## 8. Ready
 
 Confirm the agent is loaded:
 
@@ -78,7 +107,7 @@ After the ready message, add a rename reminder:
 
 > **Rename session** — give this session a name that reflects today's focus (e.g. "Architect — new trading agent").
 
-## Available Skills Reminder
+## 9. Available Skills Reminder
 
 After booting, if the user seems unsure, mention available skills:
 

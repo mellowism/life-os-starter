@@ -1,13 +1,13 @@
-# Life OS Framework
+# Agent Blueprint Framework
 
 ## Overview
 
-Life OS is a local-first, agent-powered Life Operating System built on top of:
+A local-first, agent-powered system built on top of:
 
-* **Obsidian** (Second Brain)
-* **Modular AI Agents**
-* **Structured Workflows**
-* **Deterministic Tools**
+* **Modular AI Agents** — specialized, independent, evolving
+* **Structured Workflows** — deterministic, repeatable processes
+* **Deterministic Tools** — scripts, templates, automation
+* **Optional Knowledge Layer** — Obsidian vault or any local-first knowledge base
 
 It separates **knowledge**, **intelligence**, and **execution** into clear layers.
 
@@ -17,8 +17,8 @@ It separates **knowledge**, **intelligence**, and **execution** into clear layer
 
 1. **Local-First**
 
-   * Knowledge lives in Obsidian.
-   * Synced via Syncthing (or your preferred sync tool).
+   * All state lives in markdown files on disk.
+   * Synced via your preferred tool (Syncthing, Obsidian Sync, iCloud, etc.).
    * No dependency on a cloud database.
 
 2. **Modular Agents**
@@ -45,41 +45,35 @@ It separates **knowledge**, **intelligence**, and **execution** into clear layer
 
 ```mermaid
 graph TD
-    SB[Second Brain<br>Obsidian Vault] --> AG[Agents]
+    KB[Knowledge Base<br>Optional] --> AG[Agents]
     AG --> WF[Workflows]
     WF --> TL[Tools]
 
-    SB -->|Knowledge| AG
+    KB -->|Knowledge| AG
     AG -->|Orchestrates| WF
     WF -->|Executes| TL
 ```
 
 ---
 
-## Layer 1 — Second Brain (Knowledge Layer)
+## Layer 1 — Knowledge (Optional)
 
 Location:
 
 ```
-{{LIFEOS_ROOT}}/Second Brain/
+{systemRoot}/Knowledge/
 ```
 
-Contains:
-
-* Inbox
-* Daily notes
-* Projects
-* Focus Areas
-* Milestones
-* Goals
-* Values
-* Dimensions
+An optional knowledge layer for long-term memory. Can be:
+* An Obsidian vault (recommended — graph view shows agent relationships)
+* A plain folder of markdown files
+* Any local-first knowledge system
 
 Purpose:
 
 * Long-term memory
 * Source of truth
-* Graph-based relationships
+* Structured reference data
 
 Agents may read/write here depending on permissions.
 
@@ -90,7 +84,7 @@ Agents may read/write here depending on permissions.
 Location:
 
 ```
-{{LIFEOS_ROOT}}/AI/Agents/
+{systemRoot}/AI/Agents/
 ```
 
 Each Agent contains:
@@ -125,13 +119,13 @@ Contains:
 * Skills (session start, handoff, agent-specific)
 * Labels and statuses
 * Source configurations
-* Session logic
+* Blueprint config (`agent-blueprint.json`)
 
 Notes:
 
-* Agent discovery scans workspace `skills/` folder
-* `registry.json` defines agent metadata
+* Agent discovery scans `{systemRoot}/AI/Agents/registry/` (one JSON file per agent)
 * Session flow is standardized via `/start` and `/handoff` skills
+* `agent-blueprint.json` in the workspace root stores system root path and machine identity
 
 This ensures:
 
@@ -156,7 +150,6 @@ Example:
 
 * create-agent.md
 * daily-review.md
-* migration.md
 
 Workflows are deterministic.
 Persona lives in System, not here.
@@ -196,18 +189,18 @@ sequenceDiagram
     participant U as User
     participant W as Workspace
     participant A as Agent
-    participant SB as Second Brain
+    participant KB as Knowledge Base
 
     U->>W: /start
-    W->>U: List available agents (scans skills/)
+    W->>U: List available agents (from registry)
     U->>W: Select agent
     W->>A: Load System instructions
-    A->>A: Load Handover/latest.md (if exists)
-    A->>SB: Optional inbox check (per agent policy)
+    A->>A: Load Handover (if exists)
+    A->>KB: Optional knowledge check (per agent policy)
     A->>U: Contextual greeting
 
     U->>A: Work session
-    A->>A: Generate new Handover/latest.md (if needed)
+    A->>A: Generate new handover (if needed)
 ```
 
 ---
@@ -220,29 +213,54 @@ sequenceDiagram
 * Archived, not deleted
 * Shared handover skill; agent-specific storage
 
+## Single-Machine Agents
+
+Agents with one context use a single handover file.
+
 Structure:
 
 ```
-Agents/
-  {agent-name}/
-    Handover/
-      latest.md
-      Archive/
+Agents/{agent-name}/Handover/
+├── latest.md
+└── Archive/
 ```
 
 Rules:
+1. On new handover: move `latest.md` → `Archive/{date}-{session-id}.md`, write new `latest.md`
+2. Session start reads `latest.md`
 
-1. On new handover:
-   - Move existing `latest.md` → `Archive/{timestamp}-{session-id}.md`
-   - Write new `latest.md`
-2. Session start always reads `latest.md`
-3. Handovers describe:
-   - Current state
-   - Active tasks
-   - Decisions made
-   - Next steps
-   - Relevant files touched
-4. Avoid full conversation excerpts unless explicitly required
+## Cross-Machine Agents (Optional)
+
+Agents with multiple contexts (e.g. `"contexts": ["home", "office"]`) use per-machine handover files. This allows the agent to run on different machines without losing context from either.
+
+Structure:
+
+```
+Agents/{agent-name}/Handover/
+├── latest-desktop.md
+├── latest-laptop.md
+└── Archive/
+    ├── {date}-desktop-{session-id}.md
+    └── {date}-laptop-{session-id}.md
+```
+
+Machine identity is stored in `agent-blueprint.json` (`machine.slug` and `machine.context`). The `context` field is used to filter which agents are shown during `/start`.
+
+Rules:
+1. On new handover: archive only this machine's file, write new `latest-{slug}.md`
+2. Session start reads ALL `latest-*.md` files for full cross-machine context
+3. Each handover includes a `**Machine:**` header field
+
+## Shared Rules
+
+Handovers describe:
+* Current state
+* Active tasks
+* Decisions made
+* Next steps
+* Relevant files touched
+
+Avoid full conversation excerpts unless explicitly required.
 
 ---
 
@@ -250,7 +268,8 @@ Rules:
 
 * **Short-term memory**: Current session context
 * **Session continuity**: Handover
-* **Long-term memory**: Obsidian (Second Brain)
+* **Accumulated learnings**: `System/learnings.md` (per agent)
+* **Long-term memory**: Knowledge base (optional)
 
 No hidden memory.
 No opaque state.
@@ -270,7 +289,6 @@ No opaque state.
 
 * Autonomous orchestration
 * Self-modifying agent system (no automatic structural changes)
-* Fully automated inbox processing
 * Complex cross-agent delegation
 
 Clarification:

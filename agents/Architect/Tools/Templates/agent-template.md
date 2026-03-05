@@ -36,6 +36,9 @@ This is the standard template the Architect uses when creating a new agent. Ever
 ### 9. Output Style / Formatting
 > Default formatting rules: markdown structure, verbosity, use of tables/checklists.
 
+### 10. Registry
+> Which registry file should this agent go in? `shared` (all machines) or `{machine.slug}` (this machine only). Single-machine setups always use `shared`.
+
 ---
 
 ## Required Files
@@ -47,11 +50,12 @@ Agents/{Agent-Name}/
 ├── System/
 │   ├── README.md             ← identity, purpose, fit in system
 │   ├── persona.md            ← tone, behavior, defaults
-│   └── responsibilities.md   ← does + does not
+│   ├── responsibilities.md   ← does + does not
+│   └── learnings.md          ← accumulated insights (starts empty)
 ├── Workflows/                ← session start/end, handover rules, routines
 ├── Tools/
 │   ├── Templates/            ← blueprints, boilerplates
-│   └── Scripts/              ← python scripts, utilities
+│   └── Scripts/              ← scripts, utilities
 └── Handover/
     ├── latest.md             ← current handover state
     └── Archive/              ← previous handovers
@@ -75,13 +79,13 @@ The boot file is the ONLY file the `/start` skill reads. It must point to everyt
 Every agent's boot sequence MUST start with:
 
 ```
-1. Read `{{LIFEOS_ROOT}}/Agent Principles.md` (shared operating principles)
+1. Read `{systemRoot}/Agent Principles.md` (shared operating principles)
 2. Read `persona.md` (tone, behavior, communication style)
 3. Read `responsibilities.md` (does + does not)
 4. Check `../Handover/latest.md` (previous session context)
 ```
 
-**Exception:** The Architect reads the full `Life OS Framework.md` instead of `Agent Principles.md`, and also checks `registry.json`.
+**Exception:** The Architect reads the full `Life OS Framework.md` instead of `Agent Principles.md`, and also scans `registry/`.
 
 ---
 
@@ -112,7 +116,7 @@ Every agent should proactively look for ways to improve itself:
 
 ## Handover Convention
 
-- Handover **instructions** live in the agent's `Workflows/` folder
 - Handover **files** live in the agent's `Handover/` folder (persistent, outside sessions)
 - `latest.md` is overwritten each session end; the previous version is moved to `Archive/`
-- Each agent defines its own handover rules in its workflows
+- Handover includes `agent: "[[{Agent-Folder-Name}]]"` frontmatter for knowledge graph linking
+- Each agent follows the shared `/handoff` skill for creating handovers

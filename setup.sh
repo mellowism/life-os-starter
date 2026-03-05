@@ -1,34 +1,42 @@
 #!/usr/bin/env bash
-# Life OS Starter — Setup Script (macOS / Linux)
-# Usage: ./setup.sh [--root ~/Life\ Operating\ System] [--workspace ~/.craft-agent/workspaces/my-workspace]
+# Agent Blueprint - Setup Script (macOS / Linux)
+# Usage: ./setup.sh [--root ~/MyAgents] [--workspace ~/.craft-agent/workspaces/my-workspace]
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo ""
-echo "=== Life OS Starter Setup ==="
+echo "=== Agent Blueprint Setup ==="
 echo ""
 
 # --- Parse args ---
 
-LIFEOS_ROOT=""
+SYSTEM_ROOT=""
 WORKSPACE_PATH=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --root) LIFEOS_ROOT="$2"; shift 2 ;;
+        --root) SYSTEM_ROOT="$2"; shift 2 ;;
         --workspace) WORKSPACE_PATH="$2"; shift 2 ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
 
-# --- Prompt for paths if not provided ---
+# --- Prompt for user info ---
 
-if [ -z "$LIFEOS_ROOT" ]; then
-    DEFAULT="$HOME/Life Operating System"
-    read -rp "Life OS root folder [$DEFAULT]: " LIFEOS_ROOT
-    LIFEOS_ROOT="${LIFEOS_ROOT:-$DEFAULT}"
+read -rp "What should the agents call you? " USER_NAME
+if [ -z "$USER_NAME" ]; then
+    echo "A name is required."
+    exit 1
+fi
+
+# --- Prompt for paths ---
+
+if [ -z "$SYSTEM_ROOT" ]; then
+    DEFAULT="$HOME/Agent Blueprint"
+    read -rp "System root folder [$DEFAULT]: " SYSTEM_ROOT
+    SYSTEM_ROOT="${SYSTEM_ROOT:-$DEFAULT}"
 fi
 
 if [ -z "$WORKSPACE_PATH" ]; then
@@ -37,13 +45,37 @@ if [ -z "$WORKSPACE_PATH" ]; then
     WORKSPACE_PATH="${WORKSPACE_PATH:-$DEFAULT}"
 fi
 
+# --- Multi-machine setup ---
+
+MACHINE_NAME=""
+MACHINE_SLUG=""
+MACHINE_CONTEXT="default"
+
+read -rp "Multi-machine setup? (y/N) " MULTI_MACHINE
+if [ "$MULTI_MACHINE" = "y" ] || [ "$MULTI_MACHINE" = "Y" ]; then
+    read -rp "What is this machine's name? (e.g. Desktop, Work Laptop) " MACHINE_NAME
+    if [ -z "$MACHINE_NAME" ]; then
+        echo "Machine name is required for multi-machine setup."
+        exit 1
+    fi
+    MACHINE_SLUG=$(echo "$MACHINE_NAME" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-')
+
+    read -rp "Context for this machine? (e.g. home, office) [default]: " MACHINE_CONTEXT
+    MACHINE_CONTEXT="${MACHINE_CONTEXT:-default}"
+fi
+
 # Resolve paths
-LIFEOS_ROOT="$(cd "$(dirname "$LIFEOS_ROOT")" 2>/dev/null && pwd)/$(basename "$LIFEOS_ROOT")" || LIFEOS_ROOT="$LIFEOS_ROOT"
-WORKSPACE_PATH="$(cd "$(dirname "$WORKSPACE_PATH")" 2>/dev/null && pwd)/$(basename "$WORKSPACE_PATH")" || WORKSPACE_PATH="$WORKSPACE_PATH"
+SYSTEM_ROOT="$(mkdir -p "$SYSTEM_ROOT" && cd "$SYSTEM_ROOT" && pwd)"
+mkdir -p "$WORKSPACE_PATH"
+WORKSPACE_PATH="$(cd "$WORKSPACE_PATH" && pwd)"
 
 echo ""
-echo "Life OS root:  $LIFEOS_ROOT"
+echo "User:          $USER_NAME"
+echo "System root:   $SYSTEM_ROOT"
 echo "Workspace:     $WORKSPACE_PATH"
+if [ -n "$MACHINE_NAME" ]; then
+    echo "Machine:       $MACHINE_NAME ($MACHINE_SLUG) [$MACHINE_CONTEXT]"
+fi
 echo ""
 
 read -rp "Proceed? [Y/n] " confirm
@@ -52,15 +84,15 @@ if [ -n "$confirm" ] && [ "$confirm" != "Y" ] && [ "$confirm" != "y" ]; then
     exit 1
 fi
 
-# --- Helper: copy with path replacement ---
+# --- Helper: copy with template replacement ---
 
 SETUP_DATE=$(date +%Y-%m-%d)
 
 copy_templated() {
     local src="$1" dest="$2"
     mkdir -p "$(dirname "$dest")"
-    sed -e "s|{{LIFEOS_ROOT}}|$LIFEOS_ROOT|g" \
-        -e "s|{{SETUP_DATE}}|$SETUP_DATE|g" \
+    sed -e "s|{{SETUP_DATE}}|$SETUP_DATE|g" \
+        -e "s|{{USER_NAME}}|$USER_NAME|g" \
         "$src" > "$dest"
 }
 
@@ -70,44 +102,77 @@ copy_plain() {
     cp "$src" "$dest"
 }
 
-# --- Step 1: Create Life OS folder structure ---
+# --- Step 1: Create folder structure ---
 
 echo ""
-echo "[1/5] Creating Life OS folder structure..."
+echo "[1/6] Creating folder structure..."
 
-mkdir -p "$LIFEOS_ROOT/AI/Agents/Architect/System"
-mkdir -p "$LIFEOS_ROOT/AI/Agents/Architect/Workflows"
-mkdir -p "$LIFEOS_ROOT/AI/Agents/Architect/Tools/Templates"
-mkdir -p "$LIFEOS_ROOT/AI/Agents/Architect/Tools/Scripts"
-mkdir -p "$LIFEOS_ROOT/AI/Agents/Architect/Handover/Archive"
-mkdir -p "$LIFEOS_ROOT/Second Brain"
+mkdir -p "$SYSTEM_ROOT/AI/Agents/Architect/System"
+mkdir -p "$SYSTEM_ROOT/AI/Agents/Architect/Workflows"
+mkdir -p "$SYSTEM_ROOT/AI/Agents/Architect/Tools/Templates"
+mkdir -p "$SYSTEM_ROOT/AI/Agents/Architect/Tools/Scripts"
+mkdir -p "$SYSTEM_ROOT/AI/Agents/Architect/Handover/Archive"
+mkdir -p "$SYSTEM_ROOT/AI/Agents/registry"
+mkdir -p "$SYSTEM_ROOT/Knowledge"
 
 # --- Step 2: Copy framework docs ---
 
-echo "[2/5] Copying framework docs..."
+echo "[2/6] Copying framework docs..."
 
-copy_templated "$SCRIPT_DIR/framework/Life OS Framework.md" "$LIFEOS_ROOT/Life OS Framework.md"
-copy_templated "$SCRIPT_DIR/framework/Agent Principles.md" "$LIFEOS_ROOT/Agent Principles.md"
+copy_templated "$SCRIPT_DIR/framework/Life OS Framework.md" "$SYSTEM_ROOT/Life OS Framework.md"
+copy_templated "$SCRIPT_DIR/framework/Agent Principles.md" "$SYSTEM_ROOT/Agent Principles.md"
 
 # --- Step 3: Copy Architect agent + registry ---
 
-echo "[3/5] Setting up Architect agent..."
+echo "[3/6] Setting up Architect agent..."
 
-copy_templated "$SCRIPT_DIR/agents/registry.json" "$LIFEOS_ROOT/AI/Agents/registry.json"
-copy_templated "$SCRIPT_DIR/agents/Architect/System/README.md" "$LIFEOS_ROOT/AI/Agents/Architect/System/README.md"
-copy_plain "$SCRIPT_DIR/agents/Architect/System/persona.md" "$LIFEOS_ROOT/AI/Agents/Architect/System/persona.md"
-copy_plain "$SCRIPT_DIR/agents/Architect/System/responsibilities.md" "$LIFEOS_ROOT/AI/Agents/Architect/System/responsibilities.md"
-copy_templated "$SCRIPT_DIR/agents/Architect/Workflows/create-agent.md" "$LIFEOS_ROOT/AI/Agents/Architect/Workflows/create-agent.md"
-copy_templated "$SCRIPT_DIR/agents/Architect/Tools/Templates/agent-template.md" "$LIFEOS_ROOT/AI/Agents/Architect/Tools/Templates/agent-template.md"
+copy_templated "$SCRIPT_DIR/agents/registry/shared.json" "$SYSTEM_ROOT/AI/Agents/registry/shared.json"
 
-# --- Step 4: Copy workspace files ---
-
-echo "[4/5] Setting up Craft Agent workspace..."
-
-if [ ! -d "$WORKSPACE_PATH" ]; then
-    echo "  Workspace folder doesn't exist yet. Creating it..."
-    mkdir -p "$WORKSPACE_PATH"
+# For multi-machine setups, create an empty machine-specific registry
+if [ -n "$MACHINE_NAME" ]; then
+    echo "[]" > "$SYSTEM_ROOT/AI/Agents/registry/$MACHINE_SLUG.json"
 fi
+copy_templated "$SCRIPT_DIR/agents/Architect/System/README.md" "$SYSTEM_ROOT/AI/Agents/Architect/System/README.md"
+copy_plain "$SCRIPT_DIR/agents/Architect/System/persona.md" "$SYSTEM_ROOT/AI/Agents/Architect/System/persona.md"
+copy_plain "$SCRIPT_DIR/agents/Architect/System/responsibilities.md" "$SYSTEM_ROOT/AI/Agents/Architect/System/responsibilities.md"
+copy_templated "$SCRIPT_DIR/agents/Architect/Workflows/create-agent.md" "$SYSTEM_ROOT/AI/Agents/Architect/Workflows/create-agent.md"
+copy_templated "$SCRIPT_DIR/agents/Architect/Tools/Templates/agent-template.md" "$SYSTEM_ROOT/AI/Agents/Architect/Tools/Templates/agent-template.md"
+
+# Create empty learnings file
+echo "# Learnings - Architect" > "$SYSTEM_ROOT/AI/Agents/Architect/System/learnings.md"
+
+# --- Step 4: Write agent-blueprint.json ---
+
+echo "[4/6] Writing agent-blueprint.json..."
+
+if [ -n "$MACHINE_NAME" ]; then
+    cat > "$WORKSPACE_PATH/agent-blueprint.json" << BPEOF
+{
+  "systemRoot": "$SYSTEM_ROOT",
+  "user": {
+    "name": "$USER_NAME"
+  },
+  "machine": {
+    "name": "$MACHINE_NAME",
+    "slug": "$MACHINE_SLUG",
+    "context": "$MACHINE_CONTEXT"
+  }
+}
+BPEOF
+else
+    cat > "$WORKSPACE_PATH/agent-blueprint.json" << BPEOF
+{
+  "systemRoot": "$SYSTEM_ROOT",
+  "user": {
+    "name": "$USER_NAME"
+  }
+}
+BPEOF
+fi
+
+# --- Step 5: Copy workspace files ---
+
+echo "[5/6] Setting up Craft Agent workspace..."
 
 # Skills
 for skill in start handoff new-agent architect; do
@@ -124,16 +189,18 @@ copy_plain "$SCRIPT_DIR/workspace/statuses/config.json" "$WORKSPACE_PATH/statuse
 
 copy_plain "$SCRIPT_DIR/workspace/views.json" "$WORKSPACE_PATH/views.json"
 
-# --- Step 5: Verify ---
+# --- Step 6: Verify ---
 
-echo "[5/5] Verifying..."
+echo "[6/6] Verifying..."
 
 ALL_GOOD=true
 for check in \
-    "$LIFEOS_ROOT/Life OS Framework.md" \
-    "$LIFEOS_ROOT/Agent Principles.md" \
-    "$LIFEOS_ROOT/AI/Agents/registry.json" \
-    "$LIFEOS_ROOT/AI/Agents/Architect/System/README.md" \
+    "$SYSTEM_ROOT/Life OS Framework.md" \
+    "$SYSTEM_ROOT/Agent Principles.md" \
+    "$SYSTEM_ROOT/AI/Agents/registry/shared.json" \
+    "$SYSTEM_ROOT/AI/Agents/Architect/System/README.md" \
+    "$SYSTEM_ROOT/AI/Agents/Architect/System/learnings.md" \
+    "$WORKSPACE_PATH/agent-blueprint.json" \
     "$WORKSPACE_PATH/skills/start/SKILL.md" \
     "$WORKSPACE_PATH/skills/architect/SKILL.md" \
     "$WORKSPACE_PATH/labels/config.json"; do

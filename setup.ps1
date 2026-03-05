@@ -1,8 +1,8 @@
-# Life OS Starter - Setup Script (Windows PowerShell)
-# Usage: .\setup.ps1 [-LifeOSRoot "D:\Life Operating System"] [-WorkspacePath "C:\Users\you\.craft-agent\workspaces\my-workspace"]
+# Agent Blueprint - Setup Script (Windows PowerShell)
+# Usage: .\setup.ps1 [-SystemRoot "D:\MyAgents"] [-WorkspacePath "C:\Users\you\.craft-agent\workspaces\my-workspace"]
 
 param(
-    [string]$LifeOSRoot,
+    [string]$SystemRoot,
     [string]$WorkspacePath
 )
 
@@ -10,15 +10,23 @@ $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 Write-Host ""
-Write-Host "=== Life OS Starter Setup ===" -ForegroundColor Cyan
+Write-Host "=== Agent Blueprint Setup ===" -ForegroundColor Cyan
 Write-Host ""
 
-# --- Prompt for paths if not provided ---
+# --- Prompt for user info ---
 
-if (-not $LifeOSRoot) {
-    $default = Join-Path $env:USERPROFILE "Life Operating System"
-    $LifeOSRoot = Read-Host "Life OS root folder [$default]"
-    if (-not $LifeOSRoot) { $LifeOSRoot = $default }
+$UserName = Read-Host "What should the agents call you?"
+if (-not $UserName) {
+    Write-Host "A name is required." -ForegroundColor Red
+    exit 1
+}
+
+# --- Prompt for paths ---
+
+if (-not $SystemRoot) {
+    $default = Join-Path $env:USERPROFILE "Agent Blueprint"
+    $SystemRoot = Read-Host "System root folder [$default]"
+    if (-not $SystemRoot) { $SystemRoot = $default }
 }
 
 if (-not $WorkspacePath) {
@@ -27,13 +35,36 @@ if (-not $WorkspacePath) {
     if (-not $WorkspacePath) { $WorkspacePath = $default }
 }
 
-# Normalize paths (resolve ~, ensure no trailing slash)
-$LifeOSRoot = [System.IO.Path]::GetFullPath($LifeOSRoot)
+# --- Multi-machine setup ---
+
+$MachineName = ""
+$MachineSlug = ""
+$MachineContext = "default"
+
+$multiMachine = Read-Host "Multi-machine setup? (y/N)"
+if ($multiMachine -eq "y" -or $multiMachine -eq "Y") {
+    $MachineName = Read-Host "What is this machine's name? (e.g. Desktop, Work Laptop)"
+    if (-not $MachineName) {
+        Write-Host "Machine name is required for multi-machine setup." -ForegroundColor Red
+        exit 1
+    }
+    $MachineSlug = ($MachineName.ToLower() -replace '\s+', '-' -replace '[^a-z0-9-]', '')
+
+    $MachineContext = Read-Host "Context for this machine? (e.g. home, office) [default]"
+    if (-not $MachineContext) { $MachineContext = "default" }
+}
+
+# Normalize paths
+$SystemRoot = [System.IO.Path]::GetFullPath($SystemRoot)
 $WorkspacePath = [System.IO.Path]::GetFullPath($WorkspacePath)
 
 Write-Host ""
-Write-Host "Life OS root:  $LifeOSRoot" -ForegroundColor Yellow
+Write-Host "User:          $UserName" -ForegroundColor Yellow
+Write-Host "System root:   $SystemRoot" -ForegroundColor Yellow
 Write-Host "Workspace:     $WorkspacePath" -ForegroundColor Yellow
+if ($MachineName) {
+    Write-Host "Machine:       $MachineName ($MachineSlug) [$MachineContext]" -ForegroundColor Yellow
+}
 Write-Host ""
 
 $confirm = Read-Host "Proceed? [Y/n]"
@@ -42,7 +73,9 @@ if ($confirm -and $confirm -ne "Y" -and $confirm -ne "y") {
     exit 1
 }
 
-# --- Helper: copy with path replacement ---
+# --- Helper: copy with template replacement ---
+
+$SetupDate = Get-Date -Format "yyyy-MM-dd"
 
 function Copy-Templated {
     param([string]$Source, [string]$Dest)
@@ -53,10 +86,8 @@ function Copy-Templated {
     }
 
     $content = Get-Content -Path $Source -Raw -Encoding UTF8
-    # Replace placeholder with actual path (using OS-native backslashes)
-    $content = $content -replace '\{\{LIFEOS_ROOT\}\}', ($LifeOSRoot -replace '\\', '\')
-    # Replace setup date placeholder
-    $content = $content -replace '\{\{SETUP_DATE\}\}', (Get-Date -Format "yyyy-MM-dd")
+    $content = $content -replace '\{\{SETUP_DATE\}\}', $SetupDate
+    $content = $content -replace '\{\{USER_NAME\}\}', $UserName
     Set-Content -Path $Dest -Value $content -Encoding UTF8 -NoNewline
 }
 
@@ -70,18 +101,19 @@ function Copy-Plain {
     Copy-Item -Path $Source -Destination $Dest -Force
 }
 
-# --- Step 1: Create Life OS folder structure ---
+# --- Step 1: Create folder structure ---
 
 Write-Host ""
-Write-Host "[1/5] Creating Life OS folder structure..." -ForegroundColor Green
+Write-Host "[1/6] Creating folder structure..." -ForegroundColor Green
 
 $folders = @(
-    "$LifeOSRoot\AI\Agents\Architect\System",
-    "$LifeOSRoot\AI\Agents\Architect\Workflows",
-    "$LifeOSRoot\AI\Agents\Architect\Tools\Templates",
-    "$LifeOSRoot\AI\Agents\Architect\Tools\Scripts",
-    "$LifeOSRoot\AI\Agents\Architect\Handover\Archive",
-    "$LifeOSRoot\Second Brain"
+    "$SystemRoot\AI\Agents\Architect\System",
+    "$SystemRoot\AI\Agents\Architect\Workflows",
+    "$SystemRoot\AI\Agents\Architect\Tools\Templates",
+    "$SystemRoot\AI\Agents\Architect\Tools\Scripts",
+    "$SystemRoot\AI\Agents\Architect\Handover\Archive",
+    "$SystemRoot\AI\Agents\registry",
+    "$SystemRoot\Knowledge"
 )
 
 foreach ($folder in $folders) {
@@ -92,31 +124,61 @@ foreach ($folder in $folders) {
 
 # --- Step 2: Copy framework docs ---
 
-Write-Host "[2/5] Copying framework docs..." -ForegroundColor Green
+Write-Host "[2/6] Copying framework docs..." -ForegroundColor Green
 
-Copy-Templated "$ScriptDir\framework\Life OS Framework.md" "$LifeOSRoot\Life OS Framework.md"
-Copy-Templated "$ScriptDir\framework\Agent Principles.md" "$LifeOSRoot\Agent Principles.md"
+Copy-Templated "$ScriptDir\framework\Life OS Framework.md" "$SystemRoot\Life OS Framework.md"
+Copy-Templated "$ScriptDir\framework\Agent Principles.md" "$SystemRoot\Agent Principles.md"
 
 # --- Step 3: Copy Architect agent + registry ---
 
-Write-Host "[3/5] Setting up Architect agent..." -ForegroundColor Green
+Write-Host "[3/6] Setting up Architect agent..." -ForegroundColor Green
 
-Copy-Templated "$ScriptDir\agents\registry.json" "$LifeOSRoot\AI\Agents\registry.json"
-Copy-Templated "$ScriptDir\agents\Architect\System\README.md" "$LifeOSRoot\AI\Agents\Architect\System\README.md"
-Copy-Plain "$ScriptDir\agents\Architect\System\persona.md" "$LifeOSRoot\AI\Agents\Architect\System\persona.md"
-Copy-Plain "$ScriptDir\agents\Architect\System\responsibilities.md" "$LifeOSRoot\AI\Agents\Architect\System\responsibilities.md"
-Copy-Templated "$ScriptDir\agents\Architect\Workflows\create-agent.md" "$LifeOSRoot\AI\Agents\Architect\Workflows\create-agent.md"
-Copy-Templated "$ScriptDir\agents\Architect\Tools\Templates\agent-template.md" "$LifeOSRoot\AI\Agents\Architect\Tools\Templates\agent-template.md"
+Copy-Templated "$ScriptDir\agents\registry\shared.json" "$SystemRoot\AI\Agents\registry\shared.json"
 
-# --- Step 4: Copy workspace files ---
+# For multi-machine setups, create an empty machine-specific registry
+if ($MachineName) {
+    Set-Content -Path "$SystemRoot\AI\Agents\registry\$MachineSlug.json" -Value "[]" -Encoding UTF8 -NoNewline
+}
+Copy-Templated "$ScriptDir\agents\Architect\System\README.md" "$SystemRoot\AI\Agents\Architect\System\README.md"
+Copy-Plain "$ScriptDir\agents\Architect\System\persona.md" "$SystemRoot\AI\Agents\Architect\System\persona.md"
+Copy-Plain "$ScriptDir\agents\Architect\System\responsibilities.md" "$SystemRoot\AI\Agents\Architect\System\responsibilities.md"
+Copy-Templated "$ScriptDir\agents\Architect\Workflows\create-agent.md" "$SystemRoot\AI\Agents\Architect\Workflows\create-agent.md"
+Copy-Templated "$ScriptDir\agents\Architect\Tools\Templates\agent-template.md" "$SystemRoot\AI\Agents\Architect\Tools\Templates\agent-template.md"
 
-Write-Host "[4/5] Setting up Craft Agent workspace..." -ForegroundColor Green
+# Create empty learnings file
+Set-Content -Path "$SystemRoot\AI\Agents\Architect\System\learnings.md" -Value "# Learnings - Architect" -Encoding UTF8 -NoNewline
 
-# Check if workspace exists
+# --- Step 4: Write agent-blueprint.json ---
+
+Write-Host "[4/6] Writing agent-blueprint.json..." -ForegroundColor Green
+
+$systemRootJson = $SystemRoot -replace '\\', '/'
+
+$blueprintJson = @{
+    systemRoot = $systemRootJson
+    user = @{
+        name = $UserName
+    }
+}
+
+if ($MachineName) {
+    $blueprintJson.machine = @{
+        name = $MachineName
+        slug = $MachineSlug
+        context = $MachineContext
+    }
+}
+
+$blueprintContent = $blueprintJson | ConvertTo-Json -Depth 3
+
 if (-not (Test-Path $WorkspacePath)) {
-    Write-Host "  Workspace folder doesn't exist yet. Creating it..." -ForegroundColor Yellow
     New-Item -ItemType Directory -Path $WorkspacePath -Force | Out-Null
 }
+Set-Content -Path "$WorkspacePath\agent-blueprint.json" -Value $blueprintContent -Encoding UTF8 -NoNewline
+
+# --- Step 5: Copy workspace files ---
+
+Write-Host "[5/6] Setting up Craft Agent workspace..." -ForegroundColor Green
 
 # Skills
 $skills = @("start", "handoff", "new-agent", "architect")
@@ -143,15 +205,17 @@ Copy-Plain "$ScriptDir\workspace\statuses\config.json" "$statusesDir\config.json
 
 Copy-Plain "$ScriptDir\workspace\views.json" "$WorkspacePath\views.json"
 
-# --- Step 5: Verify ---
+# --- Step 6: Verify ---
 
-Write-Host "[5/5] Verifying..." -ForegroundColor Green
+Write-Host "[6/6] Verifying..." -ForegroundColor Green
 
 $checks = @(
-    "$LifeOSRoot\Life OS Framework.md",
-    "$LifeOSRoot\Agent Principles.md",
-    "$LifeOSRoot\AI\Agents\registry.json",
-    "$LifeOSRoot\AI\Agents\Architect\System\README.md",
+    "$SystemRoot\Life OS Framework.md",
+    "$SystemRoot\Agent Principles.md",
+    "$SystemRoot\AI\Agents\registry\shared.json",
+    "$SystemRoot\AI\Agents\Architect\System\README.md",
+    "$SystemRoot\AI\Agents\Architect\System\learnings.md",
+    "$WorkspacePath\agent-blueprint.json",
     "$WorkspacePath\skills\start\SKILL.md",
     "$WorkspacePath\skills\architect\SKILL.md",
     "$WorkspacePath\labels\config.json"

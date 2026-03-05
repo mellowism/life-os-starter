@@ -37,19 +37,24 @@ Ask the following questions, max 3 at a time. Use multiple choice for structure,
    - Detailed / prose
    - Checklists / structured
    - Match the Architect's style
+10. **Registry** — Which registry should this agent go in? (multiple choice)
+    - Read `agent-blueprint.json` to check if multi-machine is configured (`machine.slug` exists)
+    - If multi-machine: offer `shared` (all machines) or `{machine.slug}` (this machine only). Default: `{machine.slug}`.
+    - If single-machine: skip this question — use `shared` automatically.
 
 ---
 
 ## Step 2 — Create Folder Structure
 
-Create the full skeleton under `{{LIFEOS_ROOT}}/AI/Agents/{Agent-Name}/`:
+Create the full skeleton under `{systemRoot}/AI/Agents/{Agent-Name}/`:
 
 ```
 {Agent-Name}/
 ├── System/
 │   ├── README.md
 │   ├── persona.md
-│   └── responsibilities.md
+│   ├── responsibilities.md
+│   └── learnings.md
 ├── Workflows/
 ├── Tools/
 │   ├── Templates/
@@ -67,6 +72,7 @@ Using the answers from Step 1 and the template at `Tools/Templates/agent-templat
 1. **README.md** — Boot file: identity, boot sequence, sources, folder map
 2. **persona.md** — Tone, behavior, communication style, output format
 3. **responsibilities.md** — Does + Does Not
+4. **learnings.md** — Empty file with heading: `# Learnings — {Agent Name}`
 
 Show a summary of all files before writing. Confirm with user.
 
@@ -74,23 +80,25 @@ Show a summary of all files before writing. Confirm with user.
 
 ## Step 4 — Register Agent
 
-1. **Add to registry** — Add agent entry to `{{LIFEOS_ROOT}}/AI/Agents/registry.json`:
-   - `id`: lowercase slug
-   - `name`: display name
-   - `folder`: folder name under `Agents/`
-   - `purpose`: one-line description
-   - `status`: `"active"`
-   - `persona`: persona type (methodical / casual / technical / custom)
-   - `contexts`: array — which workspaces this agent belongs to (e.g. `["personal"]`, `["work"]`, `["personal", "work"]`)
-   - `requiredSources`: array of source slugs
-   - `label`: matching label ID
-   - `createdAt`: date of creation (YYYY-MM-DD)
+1. **Add to registry** — Append the agent to the chosen registry file at `{systemRoot}/AI/Agents/registry/{registry}.json`:
+   - Read the target registry file (JSON array)
+   - Append a new object with these fields:
+     - `id`: lowercase slug
+     - `name`: display name
+     - `folder`: folder name under `Agents/`
+     - `purpose`: one-line description
+     - `status`: `"active"`
+     - `persona`: persona type (methodical / casual / technical / custom)
+     - `requiredSources`: array of source slugs
+     - `label`: matching label ID
+     - `createdAt`: date of creation (YYYY-MM-DD)
+   - Write the updated array back to the file
 
 2. **Create label** — Add agent label to the current workspace's `labels/config.json`
    - ID: lowercase slug of agent name
    - Name: agent display name
    - Color: complementary to existing agent labels
-   - Add an `autoRules` entry with a case-insensitive pattern matching the agent name (e.g. `(?:homelab[\\s-]?sysop)`) — this auto-tags sessions when the user selects the agent during `/start`
+   - Add an `autoRules` entry with a case-insensitive pattern matching the agent name
    - Ready for sub-labels as the agent evolves
 
 3. **Create agent skill** — Every agent gets a skill in the current workspace's `skills/{agent-slug}/SKILL.md`:
