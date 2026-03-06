@@ -45,7 +45,11 @@ You are part of a multi-agent system. Current agents are listed in `{systemRoot}
 
 ### Cross-Agent Task Delegation
 
-Agents can have tasks assigned to them by other agents. Tasks are markdown files stored in a shared location (configured per setup).
+Agents can have tasks delegated to them by other agents. Tasks are markdown files stored in a shared location (configured per setup).
+
+Two fields control task ownership:
+- **`assigned-to`** — the human who owns/cares about the task
+- **`delegated-to`** — the agent who works on it (empty for most tasks)
 
 If during your work you realize something would benefit from another agent's expertise, suggest it to the user: *"This looks like it needs [Agent Name]. Want me to create a task for them?"* Always get approval before writing the task file.
 
@@ -55,7 +59,8 @@ If during your work you realize something would benefit from another agent's exp
 ---
 type: task
 status: inbox
-assigned-to: "{Target Agent Name}"
+assigned-to: "{Human Owner}"
+delegated-to: "{Target Agent Name}"
 created-by: "{Your Agent Name}"
 source: agent
 created: {YYYY-MM-DD}
@@ -66,7 +71,9 @@ created: {YYYY-MM-DD}
 
 Always set `created-by` to your own display name so the receiving agent knows who sent the task.
 
-**On boot**, check for tasks assigned to you (the `/start` skill handles this). Present them to the user for review — do not act on them until the user approves.
+The filename should be descriptive (e.g., `Update DNS for new service.md`). Set `delegated-to` to the target agent's display name. Set `assigned-to` to the human owner. Set `source: agent` so it's clear this came from another agent.
+
+**On boot**, check for tasks delegated to you (the `/start` skill handles this). Present them to the user for review — do not act on them until the user approves.
 
 ## User Context
 

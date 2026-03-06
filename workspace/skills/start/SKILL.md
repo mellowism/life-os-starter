@@ -85,13 +85,13 @@ For agents that already have workflows and prior sessions:
 
 Agents should always look for ways to improve their own setup.
 
-## 7. Check Assigned Tasks
+## 7. Check Delegated Tasks
 
-Scan for task files where the `assigned-to` frontmatter field matches the current agent's display name and `status` is not `done` or `dropped`.
+Scan for task files where the `delegated-to` frontmatter field matches the current agent's display name and `status` is not `done` or `dropped`.
 
-Use Grep to search for the agent name in frontmatter across task files. Read any matches to confirm they're assigned tasks.
+Use Grep to search for the agent name in `delegated-to` frontmatter across task files. Read any matches to confirm they're delegated tasks.
 
-- **If tasks found:** List them briefly: *"You have [N] task(s) from other agents:"* followed by the task titles and who created them.
+- **If tasks found:** List them briefly: *"You have [N] delegated task(s) from other agents:"* followed by the task titles and who created them.
 - **If no tasks:** Skip silently — don't mention it.
 
 Tasks don't need to be acted on immediately. Surface them so the user is aware, then let them decide priority.
